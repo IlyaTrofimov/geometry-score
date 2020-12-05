@@ -3,6 +3,7 @@ from __future__ import print_function
 from .utils import relative
 from .utils import witness
 import numpy as np
+from multiprocessing import Pool
 
 
 def rlt(X, L_0=64, gamma=None, i_max=100):
@@ -30,8 +31,7 @@ def rlt(X, L_0=64, gamma=None, i_max=100):
     res = relative(I_1, alpha_max, i_max=i_max)
     return res
 
-
-def rlts(X, L_0=64, gamma=None, i_max=100, n=1000):
+def rlts(X, L_0=64, gamma=None, i_max=100, n=1000, n_threads = 1):
     """
       This function implements Algorithm 1.
 
@@ -45,13 +45,30 @@ def rlts(X, L_0=64, gamma=None, i_max=100, n=1000):
       An array of size (n, i_max) containing RLT(i, 1, X, L)
       for n collections of randomly sampled landmarks.
     """
-    rlts = np.zeros((n, i_max))
-    for i in range(n):
-        rlts[i, :] = rlt(X, L_0, gamma, i_max)
-        if i % 10 == 0:
-            print('Done {}/{}'.format(i, n))
-    return rlts
+    a_rlts = np.zeros((n, i_max))
+    print('Updated')
 
+    if n_threads > 1:
+        print('Parallel')
+        r = [None for _ in range(n)]
+
+        with Pool(n_threads) as p:
+            for i in range(n):
+                r[i] = p.apply_async(rlt, (X, L_0, gamma, i_max))
+
+            for i in range(n):
+                a_rlts[i, :] = r[i].get()
+
+                if i % 10 == 0:
+                    print('Done {}/{}'.format(i, n))
+    else:
+        print('Sequential')
+        for i in range(n):
+            a_rlts[i, :] = rlt(X, L_0, gamma, i_max)
+            if i % 10 == 0:
+                print('Done {}/{}'.format(i, n))
+
+    return a_rlts
 
 def geom_score(rlts1, rlts2):
     """
